@@ -41,7 +41,7 @@ llm_init = CTransformers(
 #         "temperature": 0.1,
 #         "repetition_penalty": 1.03,
 #     },
-#     huggingfacehub_api_token="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",
+#     huggingfacehub_api_token="",
 # )
 
 print(llm_init)
