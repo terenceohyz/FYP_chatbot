@@ -2,12 +2,12 @@ import os
 from operator import itemgetter
 from langchain_community.llms import CTransformers
 from langchain.chains import LLMChain
-from langchain.prompts import PromptTemplate, ChatPromptTemplate, HumanMessagePromptTemplate, MessagesPlaceholder
+from langchain.prompts import PromptTemplate
 from langchain_core.messages import SystemMessage
 import chainlit as cl
 from langchain_community.llms import HuggingFaceHub
 from typing import Dict, Optional
-from langchain.memory import ConversationBufferMemory, ConversationBufferWindowMemory, ConversationSummaryBufferMemory, ConversationTokenBufferMemory
+from langchain.memory import ConversationBufferWindowMemory
 from chainlit.types import ThreadDict
 
 local_llm = "zephyr-7b-alpha.Q4_K_S.gguf"
@@ -16,10 +16,9 @@ config = {
     'context_length': 700,
     'max_new_tokens': 1024,
     'repetition_penalty': 1.1,
-    'temperature': 1.2,
+    'temperature': 0.5,
     'top_k': 50,
     'top_p': 0.9,
-    'stream': True,
     'threads': int(os.cpu_count() / 2),
 }
 
@@ -46,7 +45,7 @@ llm_init = CTransformers(
 
 print(llm_init)
 
-template = """You are a medical chatbot, answer the new question directly with the previous interaction as context.
+template = """You are a medical chatbot, answer the new question directly and if you don't have an answer, just say that you don't know.
 
 Previous interaction: {history}
 
@@ -65,7 +64,7 @@ def oauth_callback(
 
 
 async def setup_runnable():
-    memory = cl.user_session.get("memory")  # type: ConversationBufferMemory
+    memory = cl.user_session.get("memory")  # type: ConversationBufferWindowMemory
 
     prompt = PromptTemplate(template=template, input_variables = ["history", "question"])
     llm_chain = LLMChain(prompt=prompt, llm=llm_init, verbose=True, memory=memory)
@@ -126,14 +125,14 @@ async def on_action(regenerate):
 
 @cl.on_message
 async def main(message: cl.Message):
-    memory = cl.user_session.get("memory")  # type: ConversationBufferMemory
+    memory = cl.user_session.get("memory")  # type: ConversationBufferWindowMemory
     prev_context = []
     if len(memory.chat_memory.messages) > 0:
         for context in memory.chat_memory.messages:
             prev_context.append(context.content)
     cl.user_session.set("prev_context", prev_context)
-    if memory:
-        print(memory.chat_memory.messages)
+    # if memory:
+    #     print(memory.chat_memory.messages)
 
     # retrieve chain from user session
     llm_chain = cl.user_session.get("llm_chain")
@@ -141,7 +140,7 @@ async def main(message: cl.Message):
     cl.user_session.set("prev_user_message", msg)
 
     # call chain asynchronously
-    res = await llm_chain.ainvoke(msg, callbacks=[cl.AsyncLangchainCallbackHandler()])
+    res = await llm_chain.acall(msg, callbacks=[cl.AsyncLangchainCallbackHandler()])
 
     actions = [
         cl.Action(name="regenerate", label="regenerate", value="regenerate", description="Regenerate response")
@@ -151,8 +150,9 @@ async def main(message: cl.Message):
     prev_msg = cl.user_session.get("prev_message")
     
     cl.user_session.set("prev_message", msg)
+    
+    if prev_msg:
+        await prev_msg.remove_actions()
 
     # return result
     await msg.send()
-    if prev_msg:
-        await prev_msg.remove_actions()
