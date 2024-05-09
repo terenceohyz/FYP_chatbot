@@ -37,3 +37,7 @@ A chatbot for patients' usage
    Use the requirements.txt file to install the necessary dependencies.
 
    `pip install -r requirements.txt`
+
+4. **Run Chainlit**
+
+   `chainlit run app.py`
