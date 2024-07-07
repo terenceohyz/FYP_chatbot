@@ -40,4 +40,4 @@ A chatbot for patients' usage
 
 4. **Run Chainlit**
 
-   `chainlit run app.py`
+   python run_both.py
